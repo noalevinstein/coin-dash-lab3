@@ -1,4 +1,4 @@
-/* global Phaser, COIN_DASH */
+/* global Phaser, COIN_DASH, AchievementTracker, AchievementToasts, MenuScene, TrophiesScene */
 const HIGH_SCORE_KEY = 'coinDash.highScore';
 
 // localStorage can be unavailable (private mode, blocked storage), so fall back to 0.
@@ -30,6 +30,11 @@ class CoinDash extends Phaser.Scene {
     this.time.paused = false;
     this.tweens.resumeAll();
     this.invincibleUntil = 0;
+    this.toasts = new AchievementToasts(this);
+    this.achievements = new AchievementTracker(achievement => {
+      this.playNotes(COIN_DASH.sound.achievementNotes);
+      this.toasts.show(achievement);
+    });
     this.deadline = this.time.now + c.roundSeconds * 1000;
     this.physics.world.setBounds(0, 44, c.width, c.height - 44);
     this.add.grid(c.width / 2, c.height / 2, c.width, c.height, 40, 40,
@@ -60,6 +65,7 @@ class CoinDash extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.coin, () => {
       if (this.finished) return;
       this.score++;
+      this.achievements.add('totalCoins');
       this.playCoinSound();
       if (this.score % c.coinsPerLevel === 0) this.levelUp();
       this.placeCoin();
@@ -67,19 +73,21 @@ class CoinDash extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.powerUp, () => {
       if (this.finished) return;
       this.hidePowerUp();
+      this.achievements.add('powerUps');
       this.playCoinSound();
       this.becomeInvincible();
     });
     this.physics.add.overlap(this.player, this.drones, () => {
-      if (!this.isInvincible()) this.finish('A drone caught you!');
+      if (!this.isInvincible()) this.finish('A drone caught you!', true);
     });
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys('W,A,S,D,R,P');
     this.input.keyboard.on('keydown-R', () => this.scene.restart());
     this.input.keyboard.on('keydown-P', () => this.togglePause());
+    this.input.keyboard.on('keydown-M', () => this.goToMenu());
     this.pauseOverlay = this.add.container(c.width / 2, c.height / 2, [
       this.add.rectangle(0, 0, 460, 120, 0x0a1120, 0.95),
-      this.add.text(0, 0, 'Paused\nPress P to resume',
+      this.add.text(0, 0, 'Paused\nP: resume   M: menu',
         { font: '24px monospace', color: '#ffffff', align: 'center', lineSpacing: 12 }).setOrigin(0.5)
     ]).setDepth(10).setVisible(false);
   }
@@ -104,9 +112,17 @@ class CoinDash extends Phaser.Scene {
     this.pauseOverlay.setVisible(this.paused);
   }
 
+  // Only from the pause or game-over screen, so a stray key press can't end a round.
+  goToMenu() {
+    if (!this.finished && !this.paused) return;
+    this.achievements.save();
+    this.scene.start('Menu');
+  }
+
   levelUp() {
     const c = COIN_DASH;
     this.level++;
+    this.achievements.raise('bestLevel', this.level);
     // Keep each drone's direction, just make it a little faster.
     const speed = c.droneSpeed + (this.level - 1) * c.droneSpeedUpPerLevel;
     this.drones.getChildren().forEach(drone => {
@@ -168,11 +184,15 @@ class CoinDash extends Phaser.Scene {
   }
 
   playCoinSound() {
-    // Synthesize a short two-note chime so no audio assets are needed.
+    this.playNotes(COIN_DASH.sound.coinNotes);
+  }
+
+  playNotes(notes) {
+    // Synthesize short chimes so no audio assets are needed.
     const ctx = this.sound.context;
     if (!ctx || COIN_DASH.sound.volume <= 0) return;
     const now = ctx.currentTime;
-    COIN_DASH.sound.coinNotes.forEach((freq, i) => {
+    notes.forEach((freq, i) => {
       const start = now + i * 0.07;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -186,8 +206,9 @@ class CoinDash extends Phaser.Scene {
     });
   }
 
-  update() {
+  update(time, delta) {
     if (this.finished || this.paused) return;
+    this.achievements.tick(delta);
     const dx = Number(this.cursors.right.isDown || this.keys.D.isDown)
       - Number(this.cursors.left.isDown || this.keys.A.isDown);
     const dy = Number(this.cursors.down.isDown || this.keys.S.isDown)
@@ -201,10 +222,11 @@ class CoinDash extends Phaser.Scene {
     if (seconds === 0) this.finish('Time is up!');
   }
 
-  finish(reason) {
+  finish(reason, caught = false) {
     if (this.finished) return;
     this.finished = true;
     this.physics.pause();
+    this.achievements.endRound({ caught });
     const newBest = this.score > this.highScore;
     if (newBest) {
       this.highScore = this.score;
@@ -213,7 +235,7 @@ class CoinDash extends Phaser.Scene {
     const c = COIN_DASH;
     this.add.rectangle(c.width / 2, c.height / 2, 460, 180, 0x0a1120, 0.95);
     this.add.text(c.width / 2, c.height / 2,
-      `${reason}\n${this.score} coins collected (level ${this.level})\n${newBest ? 'New high score!' : `High score: ${this.highScore}`}\nPress R to try again`,
+      `${reason}\n${this.score} coins collected (level ${this.level})\n${newBest ? 'New high score!' : `High score: ${this.highScore}`}\nR: try again   M: menu`,
       { font: '24px monospace', color: '#ffffff', align: 'center', lineSpacing: 12 }
     ).setOrigin(0.5);
   }
@@ -226,5 +248,5 @@ window.coinDashGame = new Phaser.Game({
   backgroundColor: COIN_DASH.colors.background,
   physics: { default: 'arcade', arcade: { debug: false } },
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_HORIZONTALLY },
-  scene: CoinDash
+  scene: [MenuScene, CoinDash, TrophiesScene]
 });
