@@ -25,10 +25,11 @@ class CoinDash extends Phaser.Scene {
     this.highScore = loadHighScore();
     this.finished = false;
     this.paused = false;
+    this.lastTrailAt = 0;
     this.deadline = this.time.now + c.roundSeconds * 1000;
     this.physics.world.setBounds(0, 44, c.width, c.height - 44);
     this.add.grid(c.width / 2, c.height / 2, c.width, c.height, 40, 40,
-      c.colors.background, 1, 0x24334b, 0.45);
+      c.colors.background, 1, 0x24334b, 0.45).setDepth(-2);
     this.hud = this.add.text(18, 12, '', { font: '18px monospace', color: '#ffffff' });
     this.player = this.add.rectangle(c.width / 2, c.height / 2, 24, 24, c.colors.player);
     this.physics.add.existing(this.player);
@@ -70,9 +71,11 @@ class CoinDash extends Phaser.Scene {
       // Freeze the countdown by remembering how much time was left.
       this.remainingMs = this.deadline - this.time.now;
       this.physics.pause();
+      this.tweens.pauseAll();
     } else {
       this.deadline = this.time.now + this.remainingMs;
       this.physics.resume();
+      this.tweens.resumeAll();
     }
     this.pauseOverlay.setVisible(this.paused);
   }
@@ -116,9 +119,21 @@ class CoinDash extends Phaser.Scene {
       - Number(this.cursors.up.isDown || this.keys.W.isDown);
     const direction = new Phaser.Math.Vector2(dx, dy).normalize().scale(COIN_DASH.playerSpeed);
     this.player.body.setVelocity(direction.x, direction.y);
+    if ((dx || dy) && this.time.now - this.lastTrailAt >= COIN_DASH.trail.everyMs) this.dropTrail();
     const seconds = Math.max(0, Math.ceil((this.deadline - this.time.now) / 1000));
     this.hud.setText(`Coins: ${this.score}      Best: ${Math.max(this.score, this.highScore)}      Time: ${seconds}s`);
     if (seconds === 0) this.finish('Time is up!');
+  }
+
+  dropTrail() {
+    const t = COIN_DASH.trail;
+    this.lastTrailAt = this.time.now;
+    // Sit between the grid and everything else so the trail never covers sprites or overlays.
+    const dot = this.add.rectangle(this.player.x, this.player.y, t.size, t.size,
+      COIN_DASH.colors.player, t.alpha).setDepth(-1);
+    this.tweens.add({
+      targets: dot, alpha: 0, scale: 0.3, duration: t.fadeMs, onComplete: () => dot.destroy()
+    });
   }
 
   finish(reason) {
