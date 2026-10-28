@@ -53,7 +53,10 @@ class CoinDash extends Phaser.Scene {
       if (this.score % c.coinsPerLevel === 0) this.levelUp();
       this.placeCoin();
     });
-    this.physics.add.overlap(this.player, this.drones, () => this.finish('A drone caught you!'));
+    this.physics.add.overlap(this.player, this.drones, () => {
+      if (!this.finished) this.cameras.main.shake(300, 0.015);
+      this.finish('A drone caught you!');
+    });
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys('W,A,S,D,R,P');
     this.input.keyboard.on('keydown-R', () => this.scene.restart());
