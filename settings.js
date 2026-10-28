@@ -17,6 +17,6 @@ window.COIN_DASH = {
   sound: { volume: 0.15, coinNotes: [988, 1319], achievementNotes: [784, 988, 1175, 1568] },
   colors: {
     background: 0x101c31, player: 0x71e8ce, coin: 0xffd166, powerUp: 0x4ea8ff,
-    drone: 0xff657a, hunter: 0x4d8dff
+    drone: 0xff657a, hunter: 0xb46bff
   }
 };
