@@ -26,6 +26,7 @@ class CoinDash extends Phaser.Scene {
     this.highScore = loadHighScore();
     this.finished = false;
     this.paused = false;
+    this.invincibleUntil = 0;
     this.deadline = this.time.now + c.roundSeconds * 1000;
     this.physics.world.setBounds(0, 44, c.width, c.height - 44);
     this.add.grid(c.width / 2, c.height / 2, c.width, c.height, 40, 40,
@@ -38,6 +39,13 @@ class CoinDash extends Phaser.Scene {
     this.physics.add.existing(this.coin);
     this.coin.body.setCircle(9);
     this.placeCoin();
+    this.powerUp = this.add.circle(0, 0, 11, c.colors.powerUp).setStrokeStyle(2, 0xffffff);
+    this.physics.add.existing(this.powerUp);
+    this.powerUp.body.setCircle(11);
+    this.hidePowerUp();
+    this.time.addEvent({
+      delay: c.powerUp.everySeconds * 1000, loop: true, callback: () => this.spawnPowerUp()
+    });
     this.drones = this.physics.add.group();
     for (let i = 0; i < c.droneCount; i++) {
       const drone = this.add.rectangle(90 + i * 270, 100, 26, 26, c.colors.drone);
@@ -53,7 +61,15 @@ class CoinDash extends Phaser.Scene {
       if (this.score % c.coinsPerLevel === 0) this.levelUp();
       this.placeCoin();
     });
-    this.physics.add.overlap(this.player, this.drones, () => this.finish('A drone caught you!'));
+    this.physics.add.overlap(this.player, this.powerUp, () => {
+      if (this.finished) return;
+      this.hidePowerUp();
+      this.playCoinSound();
+      this.becomeInvincible();
+    });
+    this.physics.add.overlap(this.player, this.drones, () => {
+      if (!this.isInvincible()) this.finish('A drone caught you!');
+    });
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys('W,A,S,D,R,P');
     this.input.keyboard.on('keydown-R', () => this.scene.restart());
@@ -90,16 +106,56 @@ class CoinDash extends Phaser.Scene {
     });
   }
 
-  placeCoin() {
+  randomSpot() {
     const c = COIN_DASH;
-    // Avoid spawning the next coin directly underneath the player.
+    // Avoid spawning directly underneath the player.
     let x, y;
     do {
       x = Phaser.Math.Between(25, c.width - 25);
       y = Phaser.Math.Between(70, c.height - 25);
     } while (Phaser.Math.Distance.Between(x, y, this.player.x, this.player.y) < 60);
+    return { x, y };
+  }
+
+  placeCoin() {
+    const { x, y } = this.randomSpot();
     this.coin.setPosition(x, y);
     this.coin.body.reset(x, y);
+  }
+
+  spawnPowerUp() {
+    if (this.finished) return;
+    const { x, y } = this.randomSpot();
+    this.powerUp.setPosition(x, y).setVisible(true);
+    this.powerUp.body.reset(x, y);
+    this.powerUp.body.enable = true;
+    if (this.powerUpExpiry) this.powerUpExpiry.remove();
+    this.powerUpExpiry = this.time.delayedCall(
+      COIN_DASH.powerUp.lifeSeconds * 1000, () => this.hidePowerUp());
+  }
+
+  hidePowerUp() {
+    this.powerUp.setVisible(false);
+    this.powerUp.body.enable = false;
+  }
+
+  isInvincible() {
+    return this.time.now < this.invincibleUntil;
+  }
+
+  becomeInvincible() {
+    const ms = COIN_DASH.powerUp.invincibleSeconds * 1000;
+    this.invincibleUntil = this.time.now + ms;
+    // Blink the player while drones can't hurt them; picking up another extends it.
+    if (this.blink) this.blink.stop();
+    if (this.invincibleEnd) this.invincibleEnd.remove();
+    this.blink = this.tweens.add({
+      targets: this.player, alpha: 0.25, duration: 120, yoyo: true, repeat: -1
+    });
+    this.invincibleEnd = this.time.delayedCall(ms, () => {
+      this.blink.stop();
+      this.player.setAlpha(1);
+    });
   }
 
   playCoinSound() {
@@ -130,7 +186,9 @@ class CoinDash extends Phaser.Scene {
     const direction = new Phaser.Math.Vector2(dx, dy).normalize().scale(COIN_DASH.playerSpeed);
     this.player.body.setVelocity(direction.x, direction.y);
     const seconds = Math.max(0, Math.ceil((this.deadline - this.time.now) / 1000));
-    this.hud.setText(`Coins: ${this.score}    Level: ${this.level}    Best: ${Math.max(this.score, this.highScore)}    Time: ${seconds}s`);
+    const shield = this.isInvincible()
+      ? `    Shield: ${Math.ceil((this.invincibleUntil - this.time.now) / 1000)}s` : '';
+    this.hud.setText(`Coins: ${this.score}    Level: ${this.level}    Best: ${Math.max(this.score, this.highScore)}    Time: ${seconds}s${shield}`);
     if (seconds === 0) this.finish('Time is up!');
   }
 
