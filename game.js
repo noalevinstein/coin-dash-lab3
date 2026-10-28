@@ -57,6 +57,15 @@ class CoinDash extends Phaser.Scene {
       const angle = (35 + i * 105) * Math.PI / 180;
       drone.body.setVelocity(Math.cos(angle) * c.droneSpeed, Math.sin(angle) * c.droneSpeed);
     }
+    // Hunter drones are slower but steer toward the player every frame.
+    // They start in the bottom corners, away from the player's spawn point.
+    this.hunters = this.physics.add.group();
+    for (let i = 0; i < c.hunterCount; i++) {
+      const x = i % 2 === 0 ? c.width - 60 : 60;
+      const hunter = this.add.rectangle(x, c.height - 60, 22, 22, c.colors.hunter);
+      this.hunters.add(hunter);
+      hunter.body.setCollideWorldBounds(true);
+    }
     this.physics.add.overlap(this.player, this.coin, () => {
       if (this.finished) return;
       this.score++;
@@ -72,6 +81,9 @@ class CoinDash extends Phaser.Scene {
     });
     this.physics.add.overlap(this.player, this.drones, () => {
       if (!this.isInvincible()) this.finish('A drone caught you!');
+    });
+    this.physics.add.overlap(this.player, this.hunters, () => {
+      if (!this.isInvincible()) this.finish('A hunter drone caught you!');
     });
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys('W,A,S,D,R,P');
@@ -194,6 +206,8 @@ class CoinDash extends Phaser.Scene {
       - Number(this.cursors.up.isDown || this.keys.W.isDown);
     const direction = new Phaser.Math.Vector2(dx, dy).normalize().scale(COIN_DASH.playerSpeed);
     this.player.body.setVelocity(direction.x, direction.y);
+    this.hunters.getChildren().forEach(hunter =>
+      this.physics.moveToObject(hunter, this.player, COIN_DASH.hunterSpeed));
     const seconds = Math.max(0, Math.ceil((this.deadline - this.time.now) / 1000));
     const shield = this.isInvincible()
       ? `    Shield: ${Math.ceil((this.invincibleUntil - this.time.now) / 1000)}s` : '';
