@@ -285,6 +285,7 @@ class CoinDash extends Phaser.Scene {
     player.sprite.body.stop();
     player.sprite.body.enable = false;
     player.sprite.setAlpha(0.25);
+    this.cameras.main.shake(300, 0.015);
     if (this.players.some(p => p.alive)) return;
     this.finish(this.players.length > 1 ? 'Both players were caught!' : reason, true);
   }
