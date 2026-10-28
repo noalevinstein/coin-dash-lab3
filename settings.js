@@ -6,6 +6,8 @@ window.COIN_DASH = {
   playerSpeed: 240,
   droneSpeed: 105,
   droneCount: 3,
+  // A rare blue coin: spawns every `everySeconds`, vanishes after `lifeSeconds` if not taken.
+  powerUp: { everySeconds: 15, lifeSeconds: 6, invincibleSeconds: 5 },
   sound: { volume: 0.15, coinNotes: [988, 1319] },
-  colors: { background: 0x101c31, player: 0x71e8ce, coin: 0xffd166, drone: 0xff657a }
+  colors: { background: 0x101c31, player: 0x71e8ce, coin: 0xffd166, powerUp: 0x4ea8ff, drone: 0xff657a }
 };
