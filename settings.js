@@ -13,6 +13,8 @@ window.COIN_DASH = {
   hunterCount: 1,
   // A rare blue coin: spawns every `everySeconds`, vanishes after `lifeSeconds` if not taken.
   powerUp: { everySeconds: 15, lifeSeconds: 6, invincibleSeconds: 5 },
+  // Coins within `radius` px of the nearest player drift toward them at `speed`.
+  magnet: { radius: 110, speed: 90 },
   // Fading squares dropped behind each player while moving.
   trail: { everyMs: 30, fadeMs: 320, size: 16, alpha: 0.5 },
   // Day/night cycle over one round. `at` is round progress (0 = start, 1 = time up);

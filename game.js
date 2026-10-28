@@ -417,6 +417,7 @@ class CoinDash extends Phaser.Scene {
       if ((dx || dy) && this.time.now - p.lastTrailAt >= COIN_DASH.trail.everyMs) this.dropTrail(p);
     });
     const targets = alive.map(p => p.sprite);
+    this.pullCoin(targets);
     this.hunters.getChildren().forEach(hunter =>
       this.physics.moveToObject(hunter, this.physics.closest(hunter, targets), COIN_DASH.hunterSpeed));
     const remainingMs = this.deadline - this.time.now;
@@ -433,6 +434,15 @@ class CoinDash extends Phaser.Scene {
     }
     this.hud.setText(`${scores}    Level: ${this.level}    Best: ${Math.max(this.bestScore(), this.highScore)}    Time: ${seconds}s`);
     if (seconds === 0) this.finish('Time is up!');
+  }
+
+  // The coin drifts toward the nearest living player within the magnet's reach.
+  pullCoin(targets) {
+    const m = COIN_DASH.magnet;
+    const nearest = this.physics.closest(this.coin, targets);
+    const near = nearest && Phaser.Math.Distance.Between(this.coin.x, this.coin.y, nearest.x, nearest.y) < m.radius;
+    if (near) this.physics.moveToObject(this.coin, nearest, m.speed);
+    else this.coin.body.setVelocity(0, 0);
   }
 
   dropTrail(player) {
