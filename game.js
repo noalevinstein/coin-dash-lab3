@@ -51,6 +51,7 @@ class CoinDash extends Phaser.Scene {
       this.score++;
       this.playCoinSound();
       if (this.score % c.coinsPerLevel === 0) this.levelUp();
+      this.popCoin();
       this.placeCoin();
     });
     this.physics.add.overlap(this.player, this.drones, () => this.finish('A drone caught you!'));
@@ -87,6 +88,15 @@ class CoinDash extends Phaser.Scene {
     this.drones.getChildren().forEach(drone => {
       const v = drone.body.velocity.clone().normalize().scale(speed);
       drone.body.setVelocity(v.x, v.y);
+    });
+  }
+
+  popCoin() {
+    // A copy of the coin bursts outward and fades where it was picked up.
+    const pop = this.add.circle(this.coin.x, this.coin.y, 9, COIN_DASH.colors.coin);
+    this.tweens.add({
+      targets: pop, scale: 2.5, alpha: 0, duration: 250, ease: 'Quad.easeOut',
+      onComplete: () => pop.destroy()
     });
   }
 
