@@ -208,6 +208,7 @@ class CoinDash extends Phaser.Scene {
     const direction = new Phaser.Math.Vector2(dx, dy).normalize().scale(COIN_DASH.playerSpeed);
     this.player.body.setVelocity(direction.x, direction.y);
     if ((dx || dy) && this.time.now - this.lastTrailAt >= COIN_DASH.trail.everyMs) this.dropTrail();
+    this.pullCoin();
     this.hunters.getChildren().forEach(hunter =>
       this.physics.moveToObject(hunter, this.player, COIN_DASH.hunterSpeed));
     const seconds = Math.max(0, Math.ceil((this.deadline - this.time.now) / 1000));
@@ -215,6 +216,13 @@ class CoinDash extends Phaser.Scene {
       ? `    Shield: ${Math.ceil((this.invincibleUntil - this.time.now) / 1000)}s` : '';
     this.hud.setText(`Coins: ${this.score}    Level: ${this.level}    Best: ${Math.max(this.score, this.highScore)}    Time: ${seconds}s${shield}`);
     if (seconds === 0) this.finish('Time is up!');
+  }
+
+  pullCoin() {
+    const m = COIN_DASH.magnet;
+    const near = Phaser.Math.Distance.Between(this.coin.x, this.coin.y, this.player.x, this.player.y) < m.radius;
+    if (near) this.physics.moveToObject(this.coin, this.player, m.speed);
+    else this.coin.body.setVelocity(0, 0);
   }
 
   dropTrail() {
