@@ -26,6 +26,9 @@ class CoinDash extends Phaser.Scene {
     this.highScore = loadHighScore();
     this.finished = false;
     this.paused = false;
+    // The clock and tweens stay paused across a restart, so undo a pause from the last round.
+    this.time.paused = false;
+    this.tweens.resumeAll();
     this.invincibleUntil = 0;
     this.deadline = this.time.now + c.roundSeconds * 1000;
     this.physics.world.setBounds(0, 44, c.width, c.height - 44);
@@ -85,13 +88,19 @@ class CoinDash extends Phaser.Scene {
     if (this.finished) return;
     this.paused = !this.paused;
     if (this.paused) {
-      // Freeze the countdown by remembering how much time was left.
+      // Freeze the countdown and shield by remembering how much time was left.
       this.remainingMs = this.deadline - this.time.now;
+      this.shieldRemainingMs = this.invincibleUntil - this.time.now;
       this.physics.pause();
+      this.tweens.pauseAll();
     } else {
       this.deadline = this.time.now + this.remainingMs;
+      this.invincibleUntil = this.time.now + this.shieldRemainingMs;
       this.physics.resume();
+      this.tweens.resumeAll();
     }
+    // Stops power-up spawn/expiry timers; time.now itself keeps advancing.
+    this.time.paused = this.paused;
     this.pauseOverlay.setVisible(this.paused);
   }
 
